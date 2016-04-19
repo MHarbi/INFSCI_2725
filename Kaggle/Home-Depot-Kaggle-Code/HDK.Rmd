@@ -1,0 +1,105 @@
+---
+title: "Home Depot Product Search Relevance"
+author: "Mohammed"
+date: "February 19, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+
+library(ggplot2)   # Data visualization
+library(readr)     # Read Tabular Data, CSV file I/O
+library(dplyr)     # A Grammar of Data Manipulation
+library(magrittr)  # A Forward-Pipe Operator
+
+
+train = read.csv("input/train.csv")
+test = read.csv("input/test.csv")
+desc = read_csv('input/product_descriptions.csv')
+attr = read_csv('input/attributes.csv')
+
+train$label = "train"
+test$label = "test"
+test$relevance = NA
+
+df = rbind(train, test)
+df$label = as.factor(df$label)
+
+```
+
+Basic stats for train and test:
+
+```{r, echo = FALSE, alert = FALSE, message = FALSE}
+cat("Train", "\n", "Number or rows:", nrow(train),"\n",
+"Number of products:", length(unique(train$product_uid)), "\n",
+"Number of search terms:", length(unique(train$search_term)))
+
+
+cat("Test", "\n", "Number or rows in test:", nrow(test), "\n",
+"Number of products:", length(unique(test$product_uid)), "\n",
+"Number of search terms:", length(unique(test$search_term)))
+```
+
+
+
+Histogram of Product IDs, marking train and test
+```{r, echo=FALSE, alert = FALSE, message = FALSE}
+ggplot(data = df, aes(x = product_uid)) + geom_histogram(aes(fill = label), binwidth=10)
+```
+
+Zooming in,
+
+```{r, echo=FALSE}
+ggplot(data = df[df$product_uid %in% c(130000:135000),], aes(x = product_uid)) + geom_histogram(aes(fill = label), binwidth=1)
+```
+
+
+```{r, echo = FALSE}
+cat(" ProductID's present in both train and test:", length(intersect(train$product_uid, test$product_uid)), "\n",
+    "ProductID's present only in train:", length(setdiff(train$product_uid, test$product_uid)), "\n",
+    "ProductID's present only in test:", length(setdiff(test$product_uid, train$product_uid)))
+
+cat(" ProductID's present in both test and desc:", length(intersect(test$product_uid, desc$product_uid)), "\n",
+    "ProductID's present in both train and desc:", length(intersect(train$product_uid, desc$product_uid)))
+
+```
+
+```{r, echo = FALSE}
+commonIDs = data.frame(product_uid = intersect(train$product_uid, test$product_uid), status_pid = "both")
+commonIDs$status_pid = as.character(commonIDs$status_pid)
+df = left_join(df, commonIDs, by="product_uid")
+df[is.na(df$status_pid),]$status_pid =  "only"
+df$status_pid = as.factor(df$status_pid)
+```
+
+```{r}
+
+cat("Merge description with train and test data \n")
+train <- merge(train,desc, by.x = "product_uid", by.y = "product_uid", all.x = TRUE, all.y = FALSE)
+test <- merge(test,desc, by.x = "product_uid", by.y = "product_uid", all.x = TRUE, all.y = FALSE)
+
+
+```
+
+
+Tabulating count of Product ID's for number of search_terms in each
+
+```{r, echo = FALSE}
+PIDgroups = df %>% group_by(product_uid, label) %>% summarise(ProductIDinstances=n(), status_pid = unique(status_pid))
+print("Train")
+table(PIDgroups[PIDgroups$label=="train",]$ProductIDinstances)
+print("Test")
+table(PIDgroups[PIDgroups$label=="test",]$ProductIDinstances)
+```
+
+```{r}
+
+
+
+```
+
+
